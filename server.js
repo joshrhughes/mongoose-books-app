@@ -45,10 +45,10 @@ app.get('/api/books', function (req, res) {
   });
 });
 
-//get request for Authors
-app.get('/api/authors', function(req, res){
-  db.Author.find();
-});
+// //get request for Authors
+// app.get('/api/authors', function(req, res){
+//   db.Author.find();
+// });
 
 // get one book
 app.get('/api/books/:id', function (req, res) {
@@ -57,20 +57,20 @@ app.get('/api/books/:id', function (req, res) {
   });
 });
 
-//Creating a new author
-app.post('/api/authors', function (req, res){
-  var newAuthor = new db.Author({
-    name: req.body.name
-  });
-  newAuthor.save(function (err, author) {
-    if (err) {
-      return console.log("save error: " + err);
-    }
-    console.log("saved ", author.name);
-    // send back the book!
-    res.json(author);
-  });
-});
+// //Creating a new author
+// app.post('/api/authors', function (req, res){
+//   var newAuthor = new db.Author({
+//     name: req.body.name
+//   });
+//   newAuthor.save(function (err, author) {
+//     if (err) {
+//       return console.log("save error: " + err);
+//     }
+//     console.log("saved ", author.name);
+//     // send back the book!
+//     res.json(author);
+//   });
+// });
 
 // create new book
 app.post('/api/books', function (req, res) {
@@ -89,7 +89,11 @@ app.post('/api/books', function (req, res) {
     }
     // add this author to the book
     newBook.author = author;
-
+    console.log(req.body.author);
+    db.Author.create({ name: req.body.author }, function (err, author) {
+      if (err) return handleError(err);
+      // saved!
+    });
 
     // save newBook to database
     newBook.save(function(err, book){
@@ -104,13 +108,24 @@ app.post('/api/books', function (req, res) {
 });
 
 
+
+// delete book
+app.delete('/api/books/:id', function (req, res) {
+  // get book id from url params (`req.params`)
+  console.log('books delete', req.params);
+  var bookId = req.params.id;
+  // find the index of the book we want to remove
+  db.Book.findOneAndRemove({ _id: bookId }, function (err, deletedBook) {
+    res.json(deletedBook);
+  });
+});
+
 // Create a character associated with a book
 app.post('/api/books/:book_id/characters', function (req, res) {
   // Get book id from url params (`req.params`)
   var bookId = req.params.book_id;
   db.Book.findById(bookId)
-    .populate('author') // Reference to author
-    // now we can worry about saving that character
+    .populate('author')
     .exec(function (err, foundBook) {
       console.log(foundBook);
       if (err) {
@@ -125,21 +140,34 @@ app.post('/api/books/:book_id/characters', function (req, res) {
         foundBook.save();
         res.status(201).json(foundBook);
       }
-    }
-    );
+    });
 });
 
-// delete book
-app.delete('/api/books/:id', function (req, res) {
-  // get book id from url params (`req.params`)
-  console.log('books delete', req.params);
-  var bookId = req.params.id;
-  // find the index of the book we want to remove
-  db.Book.findOneAndRemove({ _id: bookId }, function (err, deletedBook) {
-    res.json(deletedBook);
-  });
-});
 
+// Delete a character associated with a book
+app.delete('/api/books/:book_id/characters/:character_id', function (req, res) {
+  // Get book id from url params (`req.params`)
+  var bookId = req.params.book_id;
+  var characterId = req.params.character_id;
+  db.Book.findById(bookId)
+    .populate('author')
+    .exec(function (err, foundBook) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+      } else if (foundBook === null) {
+        res.status(404).json({ error: "No Book found by this ID" });
+      } else {
+        // find the character by id
+        var deletedCharacter = foundBook.characters.id(characterId);
+        // delete the found character
+        deletedCharacter.remove();
+        // save the found book with the character deleted
+        foundBook.save();
+        // send back the found book without the character
+        res.json(foundBook);
+      }
+    });
+});
 
 
 
